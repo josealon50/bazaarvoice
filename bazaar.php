@@ -196,7 +196,7 @@
         $bazaar = new Bazaar($db);
         $products = [];
 
-        $where = "WHERE MERCH_VISIBILITY = 'CATALOG, SEARCH' AND PRODUCT_MV.ITM_CD='142088684'";
+        $where = "WHERE MERCH_VISIBILITY = 'CATALOG, SEARCH'";
         $result = $bazaar->query($where);
         if( $result < 0 ){
             $logger->error( "Could not query tables PRODUCT_MV, and ITM_IMAGES" );
