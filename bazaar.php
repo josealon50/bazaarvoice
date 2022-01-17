@@ -133,6 +133,7 @@
      * *   Function will generate XML for bazaarvoice  
      * * Arguments: 
      * *       - product: Array with product information
+     * *       - dt :  Datetime object
      * *
      * * Return: Array with XML information  
      * *
