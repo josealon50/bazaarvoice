@@ -152,18 +152,18 @@
             $brands = $xml->addChild('Brands'); 
             $brand = $brands->addChild('Brand'); 
             $brand->addChild( "ExternalId", $product['COLLECTION_CD'] );
-            $brand->addChild( "Name", $product['ECOMM_DES'] );
+            $brand->addChild( "Name", htmlspecialchars($product['ECOMM_DES']) );
 
             $categories = $xml->addChild('Categories'); 
             $category = $categories->addChild('Category'); 
             $category->addChild("ExternalId", $product['COLLECTION_CD'] );
             $category->addChild("Name", htmlspecialchars($product['CATEGORIES']) );
 
-            $products = $xml->addChild('Products'); 
-            $childProduct = $products->addChild('Product'); 
+            $childProducts = $xml->addChild('Products'); 
+            $childProduct = $childProducts->addChild('Product'); 
             $childProduct->addChild( "ExternalId", $product['ITM_CD'] );
-            $childProduct->addChild( "Name", $product['MERCH_NAME'] );
-            $childProduct->addChild( "Description", $product['WEB_PRODUCT_GROUP'] );
+            $childProduct->addChild( "Name", htmlspecialchars($product['MERCH_NAME']) );
+            $childProduct->addChild( "Description", htmlspecialchars($product['WEB_PRODUCT_GROUP']) );
             $childProduct->addChild( "CategoryExternalId", htmlspecialchars($product['CATEGORIES']) );
             $childProduct->addChild( "ProductPageUrl", htmlspecialchars($product['PRODUCT_PAGE_URL']) );
             $childProduct->addChild( "ProductImageUrl", htmlspecialchars($product['PRODUCT_IMAGE_URL']) );
