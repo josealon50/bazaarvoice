@@ -92,13 +92,17 @@
         exit(1);
     }
 
+    $logger->debug( "Uploading to SFTP of bazaar voice" );
     //$error = upload( $filename ); 
     if( $error ){
         $logger->error( "Could not upload CSV file" );
         exit(1);
     }
-
+    $logger->debug( "Uploading to SFTP of bazaar voice succesful" );
     $logger->debug( "Finished Execution bazaar products" );
+
+
+
 
     
     /*********************************************************************************************************************************************
