@@ -49,6 +49,7 @@
  * * Out: CSV file 
  * *-------------------------------------------------------------------------------------------------------------------------------------
  * * 01/16/21   JL  Created Script
+ * * 01/17/21   JL  Fixed header for CSV file and build XML correctly
  * *
  * *
 ***/
@@ -109,15 +110,22 @@
         global $appconfig, $logger;
         //Generating timestamp CSV file name
         try {
-            $file = fopen( $path . $filename, "a+" );
+            $file = fopen( $path . $filename, "w" );
             if ( $header !== '' ){
                 fputcsv( $file, $header );
             }
             foreach( $data as $line ) {
-                fputcsv( $file, $line );
+                fwrite( $file, '"' . $line['ITM_CD'] . '"' . "," );
+                fwrite( $file, '"' . $line['MERCH_NAME'] . '"' . "," );
+                fwrite( $file, '"' . $line['ECOMM_DES'] . '"' . "," );
+                fwrite( $file, '"' . $line['COLLECTION_CD'] . '"' . "," );
+                fwrite( $file, '"' . $line['PRODUCT_IMAGE_URL'] . '"' . "," );
+                fwrite( $file, '"' . $line['PRODUCT_PAGE_URL'] . '"' . "," );
+                fwrite( $file, '"' . $line['STYLE_CD'] . '"' . "," );
+                fwrite( $file, '"' . $line['ITM_CD'] . '"' . "," );
+                fwrite( $file,  "\n" );
             }
             fclose($file);
-
             return false;
         }
         catch( Exception $e ){
@@ -142,12 +150,10 @@
      *********************************************************************************************************************************************/
     function createXML( $products, $dt ){
         global $appconfig, $logger;
-        $out = [];
+        $xml= simplexml_load_string( "<?xml version=\"1.0\" encoding=\"utf-8\" ?> <Feed name=\"Mor Furniture For Less\" extractDate=\"" . $dt->format('Y-m-d\TH:i:sP') . "\" incremental=\"false\" xmlns=\"http://www.bazaarvoice.com/xs/PRR/ProductFeed/5.6\"></Feed> ");
 
         //Iterate through the products array 
         foreach( $products as $product ){
-            $xml= simplexml_load_string( "<?xml version=\"1.0\" encoding=\"utf-8\" ?> <Feed name=\"Mor Furniture For Less\" extractDate=\"" . $dt->format('Y-m-d\TH:i:sP') . "\" incremental=\"false\" xmlns=\"http://www.bazaarvoice.com/xs/PRR/ProductFeed/5.6\"></Feed> ");
-
             //Add childs for brands
             $brands = $xml->addChild('Brands'); 
             $brand = $brands->addChild('Brand'); 
@@ -170,12 +176,10 @@
 
             $upcs = $childProduct->addChild('UPCs'); 
             $upcs->addChild( "UPC", $product['ITM_CD'] );
-
-            $logger->debug( "Product XML: \n" . tidy_repair_string( $xml->asXML(), ['input-xml'=> 1, 'indent' => 1, 'wrap' => 0] ) . "\n" );
-            array_push( $out, $xml->asXML() );
         }
+        $logger->debug( "Product XML: \n" . tidy_repair_string( $xml->asXML(), ['input-xml'=> 1, 'indent' => 1, 'wrap' => 0] ) . "\n" );
 
-        return $out;
+        return $xml->asXML();
     }
 
     /*********************************************************************************************************************************************
