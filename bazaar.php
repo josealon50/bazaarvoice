@@ -85,13 +85,14 @@
     $logger->debug( "Finished getting bazaar product voice products" );
     //Generate CSV
     $logger->debug( "Generating CSV for bazaar products" );
-    $error = generateCSV( $products, $appconfig['bazaar']['out'], sprintf( $appconfig['bazaar']['filename'], date('YmdHis')), $appconfig['bazaar']['header'] );
+    $filename = sprintf( $appconfig['bazaar']['filename'], date('YmdHis'));
+    $error = generateCSV( $products, $appconfig['bazaar']['out'], $filename, $appconfig['bazaar']['header'] );
     if( $error ){
         $logger->error( "Could not generate CSV file" );
         exit(1);
     }
 
-    $upload = upload(); 
+    //$error = upload( $filename ); 
     if( $error ){
         $logger->error( "Could not upload CSV file" );
         exit(1);
@@ -115,9 +116,9 @@
      *********************************************************************************************************************************************/
     function upload( $filename ){
         global $appconfig, $logger;
-        $sftp = new Net_SFTP( $appconfig['bazaar']['sftp']['host'] );
 
         try{ 
+            $sftp = new Net_SFTP( $appconfig['bazaar']['sftp']['host'] );
             if ( !$sftp->login( $appconfig['bazaar']['sftp']['username'], $appconfig['bazaar']['sftp']['pw']) ) {
                 $logger->debug('SFTP connection failed');
                 return false;
