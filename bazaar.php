@@ -55,9 +55,11 @@
 ***/
 
     date_default_timezone_set('America/Los_Angeles');
+    set_include_path('./libs/phpseclib');
 
     include_once('../config.php');
     include_once('autoload.php');
+    include_once('Net/SFTP.php');
 
     global $appconfig, $logger;
 
@@ -84,9 +86,53 @@
     //Generate CSV
     $logger->debug( "Generating CSV for bazaar products" );
     $error = generateCSV( $products, $appconfig['bazaar']['out'], sprintf( $appconfig['bazaar']['filename'], date('YmdHis')), $appconfig['bazaar']['header'] );
+    if( $error ){
+        $logger->error( "Could not generate CSV file" );
+        exit(1);
+    }
+
+    $upload = upload(); 
+    if( $error ){
+        $logger->error( "Could not upload CSV file" );
+        exit(1);
+    }
 
     $logger->debug( "Finished Execution bazaar products" );
 
+    
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+     * * upload: 
+     * *   Upload CSV file on $path directoy with filename and heeader 
+     * * Arguments: 
+     * *
+     * * Return: TRUE for success false otherwise 
+     * *
+     * *
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************/
+    function upload( $filename ){
+        global $appconfig, $logger;
+        $sftp = new Net_SFTP( $appconfig['bazaar']['sftp']['host'] );
+
+        try{ 
+            if ( !$sftp->login( $appconfig['bazaar']['sftp']['username'], $appconfig['bazaar']['sftp']['pw']) ) {
+                $logger->debug('SFTP connection failed');
+                return false;
+            }
+            $sftp->chdir( $appconfig['bazaar']['sftp']['remote_out'] ); 
+            $sftp->put( $filename, $appconfig['bazaar']['out'] . $filename, NET_SFTP_LOCAL_FILE );
+
+            return true;
+
+        }
+        catch( Exception $e ){
+            return false;
+        }
+
+    }
 
 
     /*********************************************************************************************************************************************
@@ -100,7 +146,7 @@
      * *    filename: file name 
      * *    header: header row
      * *
-     * * Return: TRUE for success false otherwise 
+     * * Return: TRUE for failure false otherwise 
      * *
      * *
      *********************************************************************************************************************************************
