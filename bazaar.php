@@ -67,6 +67,7 @@
     $timestamp = time();
     $dt = new DateTime("now", new DateTimeZone("America/Los_Angeles")); 
     $dt->setTimestamp($timestamp); //adjust the object to correct timestamp
+    $header = explode(",", "Product ID, Product Name, Brand, Brand ID, Image Url, Product Page Url, Product Families, UPC/EAN");
 
     $logger->debug( "Starting process: bazaar voice feed" );
     $mor = new Morcommon();
@@ -86,7 +87,7 @@
     //Generate CSV
     $logger->debug( "Generating CSV for bazaar products" );
     $filename = sprintf( $appconfig['bazaar']['filename'], date('YmdHis'));
-    $error = generateCSV( $products, $appconfig['bazaar']['out'], $filename, $appconfig['bazaar']['header'] );
+    $error = generateCSV( $products, $appconfig['bazaar']['out'], $filename, $header );
     if( $error ){
         $logger->error( "Could not generate CSV file" );
         exit(1);
