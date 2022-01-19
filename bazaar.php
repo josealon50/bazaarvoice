@@ -68,11 +68,26 @@
     $dt = new DateTime("now", new DateTimeZone("America/Los_Angeles")); 
     $dt->setTimestamp($timestamp); //adjust the object to correct timestamp
     $header = explode(",", "Product ID, Product Name, Brand, Brand ID, Image Url, Product Page Url, Product Families, UPC/EAN");
-
+    
+    //Check if any parmaeters are passed to the script and if its in upload mode
     $logger->debug( "Starting process: bazaar voice feed" );
+
+    //Check if running in upload mode 
+    $isUploadMode = isRunningInUploadMode( $argv, $argc );
+    if( $isUploadMode ){
+        $logger->debug( "Bazaar voice feed upload mode" );
+        $error = onlyUpload();
+        if( $error ){
+            $logger->error( "Could not upload filename" );
+        }
+        $logger->debug( "Finished bazaar voice feed upload mode" );
+        exit(0);
+
+    }
+
     $mor = new Morcommon();
     $db = $mor->standAloneAppConnect();
-    
+     
     if ( !$db ){
         $logger->error( "Could not connect to database" );
         exit(1);
@@ -94,9 +109,16 @@
     }
 
     $logger->debug( "Uploading to SFTP of bazaar voice" );
-    //$error = upload( $filename ); 
+    $error = upload( $filename ); 
     if( $error ){
         $logger->error( "Could not upload CSV file" );
+        exit(1);
+    }
+
+    //Need an archiving function 
+    $error = archive( $filename );
+    if( $error ){
+        $logger->error( "Could not archive CSV file" );
         exit(1);
     }
     $logger->debug( "Uploading to SFTP of bazaar voice succesful" );
@@ -105,6 +127,93 @@
 
 
 
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+     * * isRunningInUploadMode: 
+     * *   Checks if script is running in upload mode 
+     * * Arguments: 
+     * *    argc: Argument count 
+     * *    argv: Command line argments 
+     * *
+     * * Return: TRUE for upload mode false otherwise 
+     * *
+     * *
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************/
+    function isRunningInUploadMode( $argc, $argv ){
+        global $appconfig, $logger;
+
+        if(array_count_values($argc) > 1){
+            if( isset($argc[1]) ){
+                return $argc[1] == 1;
+            }
+            else{
+                return false;
+            }
+        }
+        else{
+            return false;
+        }
+    }
+
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+     * * onlyUpload: 
+     * *   Function will upload only one file that is in the out folder 
+     * * Arguments: 
+     * *
+     * *
+     * * Return: TRUE for success false otherwise 
+     * *
+     * *
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************/
+    function onlyUpload() {
+        global $appconfig, $logger;
+
+        $scanned_directory = array_diff( scandir($appconfig['bazaar']['out']), array('..', '.') );
+        foreach( $scanned_directory as $file ){
+            $logger->debug( "File found: " . $file );
+            if ( strpos($file, "zaar") > 0 ){
+                $error = upload( $file );
+                if( $error ){
+                    $logger->error( "Could not upload filename: " . $file );
+                    exit(1);
+                }
+                $error = archive( $file );
+                if( $error ){
+                    $logger->error( "Could not archive filename: " . $file );
+                }
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+     * * archive: 
+     * *   Moves filename to archive folder 
+     * * Arguments: 
+     * *    filename: File to archive
+     * *
+     * * Return: TRUE for success false otherwise 
+     * *
+     * *
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************/
+    function archive( $filename ){
+        global $appconfig, $logger;
+        
+        return !rename( $appconfig['bazaar']['out'] . $filename, $appconfig['bazaar']['archive'] .$filename );
+
+    }
     
     /*********************************************************************************************************************************************
     /*********************************************************************************************************************************************
@@ -123,19 +232,21 @@
         global $appconfig, $logger;
 
         try{ 
-            $sftp = new Net_SFTP( $appconfig['bazaar']['sftp']['host'] );
+            $sftp = new Net_SFTP( $appconfig['bazaar']['sftp']['host'], $port=$appconfig['bazaar']['sftp']['port'] );
             if ( !$sftp->login( $appconfig['bazaar']['sftp']['username'], $appconfig['bazaar']['sftp']['pw']) ) {
                 $logger->debug('SFTP connection failed');
                 return false;
             }
+            $logger->debug("SFTP connection succesful");
             $sftp->chdir( $appconfig['bazaar']['sftp']['remote_out'] ); 
+            $logger->debug("SFTP changed directory");
             $sftp->put( $filename, $appconfig['bazaar']['out'] . $filename, NET_SFTP_LOCAL_FILE );
 
-            return true;
+            return false;
 
         }
         catch( Exception $e ){
-            return false;
+            return true;
         }
 
     }
