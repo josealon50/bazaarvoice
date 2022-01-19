@@ -147,7 +147,7 @@
 
         if(array_count_values($argc) > 1){
             if( isset($argc[1]) ){
-                return $argc[1] == 1;
+                return $argc[1] === 'upload_only';
             }
             else{
                 return false;
