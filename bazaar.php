@@ -111,7 +111,7 @@
     $logger->debug( "Generating XML file" );
     $xml_filename = sprintf( $appconfig['bazaar']['xml_filename'], date('YmdHis') );
     $error = generateXMLFile(  $xml_filename, $xml ); 
-    if( $error ){
+    if( !$error ){
         $logger->error( "Could not generate XML file" );
         exit(1);
     }
@@ -122,6 +122,7 @@
         $logger->error( "Could not upload CSV file" );
         exit(1);
     }
+    $logger->debug( "Uploading to SFTP of bazaar voice succesful" );
 
     //Need an archiving function 
     $error = archive( $xml_filename );
@@ -129,7 +130,7 @@
         $logger->error( "Could not archive CSV file" );
         exit(1);
     }
-    $logger->debug( "Uploading to SFTP of bazaar voice succesful" );
+    $logger->debug( "Archiving Succesful" );
     $logger->debug( "Finished Execution bazaar products" );
 
 
