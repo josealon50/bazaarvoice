@@ -102,21 +102,29 @@
     //Generate CSV
     $logger->debug( "Generating CSV for bazaar products" );
     $filename = sprintf( $appconfig['bazaar']['filename'], date('YmdHis'));
-    $error = generateCSV( $products, $appconfig['bazaar']['out'], $filename, $header );
+    $error = generateCSV( $products['PRODUCTS'], $appconfig['bazaar']['out'], $filename, $header );
     if( $error ){
         $logger->error( "Could not generate CSV file" );
         exit(1);
     }
 
+    $logger->debug( "Generating XML file" );
+    $xml_filename = sprintf( $appconfig['bazaar']['xml_filename'], date('YmdHis') );
+    $error = generateXMLFile(  $xml_filename, $xml ); 
+    if( $error ){
+        $logger->error( "Could not generate XML file" );
+        exit(1);
+    }
+
     $logger->debug( "Uploading to SFTP of bazaar voice" );
-    $error = upload( $filename ); 
+    $error = upload( $xml_filename ); 
     if( $error ){
         $logger->error( "Could not upload CSV file" );
         exit(1);
     }
 
     //Need an archiving function 
-    $error = archive( $filename );
+    $error = archive( $xml_filename );
     if( $error ){
         $logger->error( "Could not archive CSV file" );
         exit(1);
@@ -125,7 +133,33 @@
     $logger->debug( "Finished Execution bazaar products" );
 
 
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+     * * generateXMLFile: 
+     * *   Generates XML file on the out folder 
+     * * Arguments: 
+     * *    filename: File name 
+     * *    xml: XML string 
+     * *
+     * * Return: TRUE for upload mode false otherwise 
+     * *
+     * *
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************/
 
+    function generateXMLFile( $filename, $xml ){
+        global $appconfig, $logger;
+
+        if( !$file = fopen( $appconfig['bazaar']['out'] . $filename, 'w+' )){
+            $logger->error( "Could not opent file for xml writing" );
+            exit(1);
+        }
+
+        return fwrite( $file, $xml );
+
+    }
 
     /*********************************************************************************************************************************************
     /*********************************************************************************************************************************************
@@ -314,28 +348,25 @@
     function createXML( $products, $dt ){
         global $appconfig, $logger;
         $xml= simplexml_load_string( "<?xml version=\"1.0\" encoding=\"utf-8\" ?> <Feed name=\"Mor Furniture For Less\" extractDate=\"" . $dt->format('Y-m-d\TH:i:sP') . "\" incremental=\"false\" xmlns=\"http://www.bazaarvoice.com/xs/PRR/ProductFeed/5.6\"></Feed> ");
+        $brands = $xml->addChild('Brands'); 
+        $childProducts = $xml->addChild('Products'); 
 
-        //Iterate through the products array 
-        foreach( $products as $product ){
+        foreach( $products['BRANDS'] as $br ){
             //Add childs for brands
-            $brands = $xml->addChild('Brands'); 
             $brand = $brands->addChild('Brand'); 
-            $brand->addChild( "ExternalId", $product['COLLECTION_CD'] );
-            $brand->addChild( "Name", htmlspecialchars($product['ECOMM_DES']) );
+            $brand->addChild( "ExternalId", htmlspecialchars($br['EXTERNAL_ID']) );
+            $brand->addChild( "Name", htmlspecialchars($br['NAME']) );
 
-            $categories = $xml->addChild('Categories'); 
-            $category = $categories->addChild('Category'); 
-            $category->addChild("ExternalId", $product['COLLECTION_CD'] );
-            $category->addChild("Name", htmlspecialchars($product['CATEGORIES']) );
-
-            $childProducts = $xml->addChild('Products'); 
+        }
+        //Iterate through the products array 
+        foreach( $products['PRODUCTS'] as $product ){
             $childProduct = $childProducts->addChild('Product'); 
             $childProduct->addChild( "ExternalId", $product['ITM_CD'] );
             $childProduct->addChild( "Name", htmlspecialchars($product['MERCH_NAME']) );
             $childProduct->addChild( "Description", htmlspecialchars($product['WEB_PRODUCT_GROUP']) );
-            $childProduct->addChild( "CategoryExternalId", htmlspecialchars($product['CATEGORIES']) );
-            $childProduct->addChild( "ProductPageUrl", htmlspecialchars($product['PRODUCT_PAGE_URL']) );
-            $childProduct->addChild( "ProductImageUrl", htmlspecialchars($product['PRODUCT_IMAGE_URL']) );
+            $childProduct->addChild( "BrandExternalId", htmlspecialchars(str_replace(' ', '', $product['ECOMM_DES'])) );
+            $childProduct->addChild( "ProductPageUrl", $product['PRODUCT_PAGE_URL'] );
+            $childProduct->addChild( "ProductImageUrl", $product['PRODUCT_IMAGE_URL'] );
 
             $upcs = $childProduct->addChild('UPCs'); 
             $upcs->addChild( "UPC", $product['ITM_CD'] );
@@ -371,8 +402,13 @@
             exit(1);
         }
 
+        $brands = [];
+        $categories = [];
+
         while( $bazaar->next() ){
             $tmp = [];
+
+            array_push( $brands , [ 'EXTERNAL_ID' => str_replace( ' ', '', $bazaar->get_ECOMM_DES()), 'NAME' => $bazaar->get_ECOMM_DES() ]); 
 
             $tmp['ITM_CD'] = $bazaar->get_ITM_CD();
             $tmp['MERCH_NAME'] = $bazaar->get_MERCH_NAME();
@@ -387,9 +423,39 @@
             array_push( $products, $tmp );
 
         }
+        $brands = getUniqueBrands( $brands );
 
         $logger->debug( "Dumping all products for bazaar voice: " . print_r($products, 1) );
-        return $products;
+        $logger->debug( "Dumping all brands for bazaar voice: " . print_r($brands, 1) );
+        return array( 'PRODUCTS' => $products, 'BRANDS' => $brands );
+
+    }
+
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+     * * getUniqueBrands: 
+     * *   Dedup brands array 
+     * * Arguments: 
+     * *    brands: Array of brands 
+     * *
+     * * Return: Array of dedup brands 
+     * *
+     * *
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************/
+    function getUniqueBrands( $brands ){
+        global $appconfig, $logger;
+
+        $tmp = [];
+        foreach( $brands as $brand ){
+            if( !in_array( $brand, $tmp )){
+                array_push( $tmp, $brand );
+            }
+        }
+        return $tmp;
+
 
     }
 
