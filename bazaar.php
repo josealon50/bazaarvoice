@@ -96,41 +96,30 @@
     $logger->debug( "Querying items from table PRODUCT_MV and ITM_IMAGES" );
     $products = getBazaarVoiceProducts( $db );
     $logger->debug( "Finished getting bazaar product voice products" );
-    //Generate XML 
+
+    //Generate XML and upload
     $xml = createXML( $products, $dt );
-    $logger->debug( "Finished getting bazaar product voice products" );
+    $logger->debug( "Generating XML file" );
+    $xml_filename = sprintf( $appconfig['bazaar']['xml_filename'], date('YmdHis') );
+    $error = generateXMLFile(  $xml_filename, $xml ); 
+    if( !$error ){ $logger->error( "Could not generate XML file" ); exit(1); }
+    $logger->debug( "Uploading to SFTP of bazaar voice" );
+    $error = upload( $xml_filename ); 
+    if( $error ){ $logger->error( "Could not upload XML file" ); exit(1); }
+    $error = archive( $xml_filename );
+    if( $error ){ $logger->error( "Could not archive XML file" ); exit(1); }
+    $logger->debug( "Uploading to SFTP of bazaar voice succesful" );
+
+
     //Generate CSV
     $logger->debug( "Generating CSV for bazaar products" );
     $filename = sprintf( $appconfig['bazaar']['filename'], date('YmdHis'));
     $error = generateCSV( $products['PRODUCTS'], $appconfig['bazaar']['out'], $filename, $header );
-    if( $error ){
-        $logger->error( "Could not generate CSV file" );
-        exit(1);
-    }
-
-    $logger->debug( "Generating XML file" );
-    $xml_filename = sprintf( $appconfig['bazaar']['xml_filename'], date('YmdHis') );
-    $error = generateXMLFile(  $xml_filename, $xml ); 
-    if( !$error ){
-        $logger->error( "Could not generate XML file" );
-        exit(1);
-    }
-
-    $logger->debug( "Uploading to SFTP of bazaar voice" );
-    $error = upload( $xml_filename ); 
-    if( $error ){
-        $logger->error( "Could not upload CSV file" );
-        exit(1);
-    }
-    $logger->debug( "Uploading to SFTP of bazaar voice succesful" );
-
+    if( $error ){ $logger->error( "Could not generate CSV file" ); exit(1); }
     //Need an archiving function 
-    $error = archive( $xml_filename );
-    if( $error ){
-        $logger->error( "Could not archive CSV file" );
-        exit(1);
-    }
-    $logger->debug( "Archiving Succesful" );
+    $error = archive( $filename );
+    if( $error ){ $logger->error( "Could not archive CSV file" ); exit(1); }
+    
     $logger->debug( "Finished Execution bazaar products" );
 
 
