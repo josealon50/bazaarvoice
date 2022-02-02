@@ -48,8 +48,9 @@
  * *
  * * Out: CSV file 
  * *-------------------------------------------------------------------------------------------------------------------------------------
- * * 01/16/21   JL  Created Script
- * * 01/17/21   JL  Fixed header for CSV file and build XML correctly
+ * * 01/16/22   JL  Created Script
+ * * 01/17/22   JL  Fixed header for CSV file and build XML correctly
+ * * 02/02/22   JL  Moving brand data inside product 
  * *
  * *
 ***/
@@ -338,28 +339,20 @@
     function createXML( $products, $dt ){
         global $appconfig, $logger;
         $xml= simplexml_load_string( "<?xml version=\"1.0\" encoding=\"utf-8\" ?> <Feed name=\"Mor Furniture For Less\" extractDate=\"" . $dt->format('Y-m-d\TH:i:sP') . "\" incremental=\"false\" xmlns=\"http://www.bazaarvoice.com/xs/PRR/ProductFeed/5.6\"></Feed> ");
-        $brands = $xml->addChild('Brands'); 
         $childProducts = $xml->addChild('Products'); 
 
-        foreach( $products['BRANDS'] as $br ){
-            //Add childs for brands
-            $brand = $brands->addChild('Brand'); 
-            $brand->addChild( "ExternalId", htmlspecialchars($br['EXTERNAL_ID']) );
-            $brand->addChild( "Name", htmlspecialchars($br['NAME']) );
-
-        }
         //Iterate through the products array 
         foreach( $products['PRODUCTS'] as $product ){
             $childProduct = $childProducts->addChild('Product'); 
             $childProduct->addChild( "ExternalId", $product['ITM_CD'] );
             $childProduct->addChild( "Name", htmlspecialchars($product['MERCH_NAME']) );
             $childProduct->addChild( "Description", htmlspecialchars($product['WEB_PRODUCT_GROUP']) );
-            $childProduct->addChild( "BrandExternalId", htmlspecialchars(str_replace(' ', '', $product['ECOMM_DES'])) );
             $childProduct->addChild( "ProductPageUrl", $product['PRODUCT_PAGE_URL'] );
-            $childProduct->addChild( "ProductImageUrl", $product['PRODUCT_IMAGE_URL'] );
+            $childProduct->addChild( "ImageUrl", $product['PRODUCT_IMAGE_URL'] );
 
-            $upcs = $childProduct->addChild('UPCs'); 
-            $upcs->addChild( "UPC", $product['ITM_CD'] );
+            $brand = $childProduct->addChild('Brand'); 
+            $brand->addChild( 'ExternalId', htmlspecialchars($product['BRAND']['EXTERNAL_ID']) );
+            $brand->addChild( 'Name', htmlspecialchars($product['BRAND']['NAME']) );
         }
         $logger->debug( "Product XML: \n" . tidy_repair_string( $xml->asXML(), ['input-xml'=> 1, 'indent' => 1, 'wrap' => 0] ) . "\n" );
 
@@ -409,6 +402,7 @@
             $tmp['STYLE_CD'] = $bazaar->get_STYLE_CD();
             $tmp['CATEGORIES'] = str_replace(" ", "-", $bazaar->get_CATEGORIES());
             $tmp['WEB_PRODUCT_GROUP'] = str_replace(" ", "-", $bazaar->get_WEB_PRODUCT_GROUP());
+            $tmp['BRAND'] = [ 'EXTERNAL_ID' => str_replace( ' ', '', $bazaar->get_ECOMM_DES()), 'NAME' => $bazaar->get_ECOMM_DES() ];
 
             array_push( $products, $tmp );
 
@@ -416,7 +410,6 @@
         $brands = getUniqueBrands( $brands );
 
         $logger->debug( "Dumping all products for bazaar voice: " . print_r($products, 1) );
-        $logger->debug( "Dumping all brands for bazaar voice: " . print_r($brands, 1) );
         return array( 'PRODUCTS' => $products, 'BRANDS' => $brands );
 
     }
