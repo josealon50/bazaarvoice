@@ -104,9 +104,9 @@
     $xml_filename = sprintf( $appconfig['bazaar']['xml_filename'], date('YmdHis') );
     $error = generateXMLFile(  $xml_filename, $xml ); 
     if( !$error ){ $logger->error( "Could not generate XML file" ); exit(1); }
-    $logger->debug( "Uploading to SFTP of bazaar voice" );
     $error = upload( $xml_filename ); 
     if( $error ){ $logger->error( "Could not upload XML file" ); exit(1); }
+    $logger->debug( "Uploading to SFTP of bazaar voice" );
     $error = archive( $xml_filename );
     if( $error ){ $logger->error( "Could not archive XML file" ); exit(1); }
     $logger->debug( "Uploading to SFTP of bazaar voice succesful" );
@@ -348,7 +348,7 @@
             $childProduct->addChild( "Name", htmlspecialchars($product['MERCH_NAME']) );
             $childProduct->addChild( "Description", htmlspecialchars($product['WEB_PRODUCT_GROUP']) );
             $childProduct->addChild( "ProductPageUrl", $product['PRODUCT_PAGE_URL'] );
-            $childProduct->addChild( "ImageUrl", $product['PRODUCT_IMAGE_URL'] );
+            $childProduct->addChild( "ImageUrl", htmlspecialchars($product['PRODUCT_IMAGE_URL']) );
 
             $brand = $childProduct->addChild('Brand'); 
             $brand->addChild( 'ExternalId', htmlspecialchars($product['BRAND']['EXTERNAL_ID']) );
@@ -357,6 +357,25 @@
         $logger->debug( "Product XML: \n" . tidy_repair_string( $xml->asXML(), ['input-xml'=> 1, 'indent' => 1, 'wrap' => 0] ) . "\n" );
 
         return $xml->asXML();
+    }
+    
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+    /*********************************************************************************************************************************************
+     * * formatURL: 
+     * *   Function will verify that URL have the domain    
+     * * Arguments: 
+     * *    string: Image URL 
+     * *
+     * * Return: String URL website 
+     * *
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************
+     *********************************************************************************************************************************************/
+    function formatURL( $url ){
+        global $appconfig, $logger;
+
+        return strpos($url, 'https') !== FALSE ? $url : $appconfig['bazaar']['bazaar_mor_image_url'] . $url; 
     }
 
     /*********************************************************************************************************************************************
@@ -394,11 +413,11 @@
             array_push( $brands , [ 'EXTERNAL_ID' => str_replace( ' ', '', $bazaar->get_ECOMM_DES()), 'NAME' => $bazaar->get_ECOMM_DES() ]); 
 
             $tmp['ITM_CD'] = $bazaar->get_ITM_CD();
-            $tmp['MERCH_NAME'] = $bazaar->get_MERCH_NAME();
+            $tmp['MERCH_NAME'] = preg_replace('/[^A-Za-z0-9. -]/', '', $bazaar->get_MERCH_NAME());
             $tmp['ECOMM_DES'] = $bazaar->get_ECOMM_DES();
             $tmp['COLLECTION_CD'] = $bazaar->get_COLLECTION_CD();
             $tmp['PRODUCT_PAGE_URL'] = $appconfig['bazaar']['bazaar_mor_product_url'] . $bazaar->get_ITM_CD();
-            $tmp['PRODUCT_IMAGE_URL'] = $appconfig['bazaar']['bazaar_mor_image_url'] . $bazaar->get_URL();
+            $tmp['PRODUCT_IMAGE_URL'] = formatURL( $bazaar->get_URL() );
             $tmp['STYLE_CD'] = $bazaar->get_STYLE_CD();
             $tmp['CATEGORIES'] = str_replace(" ", "-", $bazaar->get_CATEGORIES());
             $tmp['WEB_PRODUCT_GROUP'] = str_replace(" ", "-", $bazaar->get_WEB_PRODUCT_GROUP());
