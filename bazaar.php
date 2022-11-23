@@ -65,6 +65,8 @@
     global $appconfig, $logger;
 
     $logger = new ILog($appconfig['bazaar']['logger']['username'], date('ymdhms') . ".log", $appconfig['bazaar']['logger']['log_folder'], $appconfig['bazaar']['logger']['priority']);
+
+    $exception = fopen( './out/exception.csv', 'w+' );
     $timestamp = time();
     $dt = new DateTime("now", new DateTimeZone("America/Los_Angeles")); 
     $dt->setTimestamp($timestamp); //adjust the object to correct timestamp
@@ -95,7 +97,7 @@
     }
 
     $logger->debug( "Querying items from table PRODUCT_MV and ITM_IMAGES" );
-    $products = getBazaarVoiceProducts( $db );
+    $products = getBazaarVoiceProducts( $db, $exception );
     $logger->debug( "Finished getting bazaar product voice products" );
 
     //Generate XML and upload
@@ -391,7 +393,7 @@
      *********************************************************************************************************************************************
      *********************************************************************************************************************************************
      *********************************************************************************************************************************************/
-    function getBazaarVoiceProducts( $db ){
+    function getBazaarVoiceProducts( $db, $exception ){
         global $appconfig, $logger;
         
         $bazaar = new Bazaar($db);
@@ -411,25 +413,51 @@
             $tmp = [];
 
             array_push( $brands , [ 'EXTERNAL_ID' => str_replace( ' ', '', $bazaar->get_ECOMM_DES()), 'NAME' => $bazaar->get_ECOMM_DES() ]); 
+            $url = formatURL( $bazaar->get_URL() );
+            $httpCode = validURL($url);
 
             $tmp['ITM_CD'] = $bazaar->get_ITM_CD();
             $tmp['MERCH_NAME'] = preg_replace('/[^A-Za-z0-9. -]/', '', $bazaar->get_MERCH_NAME());
             $tmp['ECOMM_DES'] = $bazaar->get_ECOMM_DES();
             $tmp['COLLECTION_CD'] = $bazaar->get_COLLECTION_CD();
             $tmp['PRODUCT_PAGE_URL'] = $appconfig['bazaar']['bazaar_mor_product_url'] . $bazaar->get_ITM_CD();
-            $tmp['PRODUCT_IMAGE_URL'] = formatURL( $bazaar->get_URL() );
+            $tmp['PRODUCT_IMAGE_URL'] = $url;
             $tmp['STYLE_CD'] = $bazaar->get_STYLE_CD();
             $tmp['CATEGORIES'] = str_replace(" ", "-", $bazaar->get_CATEGORIES());
             $tmp['WEB_PRODUCT_GROUP'] = str_replace(" ", "-", $bazaar->get_WEB_PRODUCT_GROUP());
             $tmp['BRAND'] = [ 'EXTERNAL_ID' => str_replace( ' ', '', $bazaar->get_ECOMM_DES()), 'NAME' => $bazaar->get_ECOMM_DES() ];
 
-            array_push( $products, $tmp );
+            if( $httpCode !== 200 ){
+              unset($tmp['BRAND']);
+              fputcsv( $exception, $tmp );
+              continue;
+            }
 
+            array_push( $products, $tmp );
         }
         $brands = getUniqueBrands( $brands );
 
         $logger->debug( "Dumping all products for bazaar voice: " . print_r($products, 1) );
         return array( 'PRODUCTS' => $products, 'BRANDS' => $brands );
+
+    }
+
+    function validURL( $url ){
+        global $appconfig, $logger;
+
+        $ch = curl_init($url);
+
+        curl_setopt($ch, CURLOPT_HEADER, true);    // we want headers
+        curl_setopt($ch, CURLOPT_NOBODY, true);    // we don't need body
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT,10);
+
+        $output = curl_exec($ch);
+        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+  
+        return $httpcode;
+
 
     }
 
